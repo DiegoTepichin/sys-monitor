@@ -5,7 +5,8 @@ import logging
 from datetime import datetime
 
 # Import configs and system monitor scripts
-from config import POLL_INTERVAL, API_KEY, PORT, HOST
+from config import API_KEY
+from config import POLL_INTERVAL, PORT, HOST
 from scripts.monitor_cpu import get_cpu_usage
 from scripts.monitor_memory import get_memory_usage
 from scripts.monitor_disk import get_disk_usage
@@ -31,8 +32,8 @@ def run_agent():
     logger.info(f"Starting Sys-Monitor Agent daemon. Target API: {API_URL} (Interval: {POLL_INTERVAL}s)")
     
     headers = {
-        "X-API-Key": API_KEY,
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json',
+        'X-API-Key': API_KEY
     }
 
     while True:
