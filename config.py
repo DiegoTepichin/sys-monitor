@@ -1,5 +1,21 @@
 import os
 
+# Load .env file manually if it exists to synchronize environment variables
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(env_path):
+    try:
+        with open(env_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    # Strip quotes if present
+                    val = val.strip().strip('"').strip("'")
+                    os.environ[key.strip()] = val
+    except Exception as e:
+        print(f"Warning: Failed to load .env file manually: {e}")
+
+
 # Server Configuration
 PORT = int(os.environ.get("PORT", 5000))
 HOST = os.environ.get("HOST", "0.0.0.0")

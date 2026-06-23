@@ -95,7 +95,7 @@ def api_metrics():
         provided_key = request.headers.get("X-API-Key")
         if not provided_key or provided_key != API_KEY:
             logger.warning(f"Unauthorized metrics POST attempt. API Key mismatch or missing. IP: {request.remote_addr}")
-            return jsonify({"error": "Unauthorized. Invalid X-API-Key."}), 401
+            return jsonify({"error": "Forbidden. Invalid or missing X-API-Key."}), 403
         
         try:
             payload = request.get_json()
