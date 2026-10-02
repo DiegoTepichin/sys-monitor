@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Terminal } from 'lucide-react';
 
 export default function ProcessesTable({ processes, searchQuery = '', delay = 0 }) {
-  // Filter processes based on Command Palette query
+  // Filter processes by the header search query
   const filteredProcesses = React.useMemo(() => {
     if (!processes) return [];
     let list = processes;
@@ -13,7 +13,7 @@ export default function ProcessesTable({ processes, searchQuery = '', delay = 0 
         (p) => p.name.toLowerCase().includes(query) || p.pid.toString().includes(query),
       );
     }
-    return list.slice(0, 5); // Strictly limit to 5 threads
+    return list.slice(0, 5); // Show at most 5 processes
   }, [processes, searchQuery]);
 
   return (
@@ -38,7 +38,7 @@ export default function ProcessesTable({ processes, searchQuery = '', delay = 0 
           <span className="text-[#00FFA3] drop-shadow-[0_0_5px_rgba(0,255,163,0.5)]">
             {filteredProcesses.length}
           </span>{' '}
-          threads
+          processes
         </div>
       </div>
 

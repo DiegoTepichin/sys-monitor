@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import HealthIndicator from './HealthIndicator';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Monitor, Search, Menu, X, Command } from 'lucide-react';
@@ -12,6 +12,20 @@ export default function Layout({
   uptime,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Cmd+K (macOS) / Ctrl+K (elsewhere) focuses the process search
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col relative z-0">
@@ -35,15 +49,12 @@ export default function Layout({
             </div>
             <div className="hidden sm:block">
               <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
-                SYS_MONITOR{' '}
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FFA3]/10 text-[#00FFA3] border border-[#00FFA3]/40 shadow-[0_0_10px_rgba(0,255,163,0.2)]">
-                  v2.0
-                </span>
+                SYS_MONITOR
               </h1>
             </div>
           </motion.div>
 
-          {/* Command Palette / Search (Desktop) */}
+          {/* Process search (Desktop) */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -54,8 +65,10 @@ export default function Layout({
               <Search size={16} />
             </div>
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search processes..."
+              aria-label="Search processes (Cmd+K or Ctrl+K)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#1E0F36]/80 border border-[#7B61FF]/30 rounded-xl py-2 pl-10 pr-12 text-sm text-white focus:outline-none focus:border-[#00FFA3] focus:ring-1 focus:ring-[#00FFA3] transition-all placeholder:text-[#3AB0FF]/40 shadow-inner"
@@ -148,7 +161,7 @@ export default function Layout({
         className="py-8 text-center"
       >
         <p className="text-xs text-[#7B61FF]/60 font-mono tracking-wide">
-          &copy; {new Date().getFullYear()} SYS_MONITOR // SECURE
+          SYS_MONITOR · MIT License
         </p>
       </motion.footer>
     </div>

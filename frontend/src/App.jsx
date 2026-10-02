@@ -66,9 +66,9 @@ function App() {
             title="CPU Usage"
             icon={Cpu}
             percent={data?.cpu?.percent || 0}
-            subtext={`${data?.cpu?.cores} Cores @ ${
-              data?.cpu?.frequency && data.cpu.frequency >= 100 ? data.cpu.frequency : 'N/A'
-            }${data?.cpu?.frequency && data.cpu.frequency >= 100 ? ' MHz' : ''}`}
+            subtext={`${data?.cpu?.cores ?? 0} Cores${
+              data?.cpu?.frequency >= 100 ? ` @ ${Math.round(data.cpu.frequency)} MHz` : ''
+            }`}
             extraMetrics={[
               {
                 label: 'Load Avg',
