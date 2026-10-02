@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-stone-100 antialiased font-sans min-h-screen overflow-x-hidden m-0 p-0;
+    background-color: #05020a;
+    background-image: radial-gradient(circle at 10% 20%, rgba(123, 97, 255, 0.15), transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(0, 255, 163, 0.08), transparent 40%),
+      linear-gradient(rgba(123, 97, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(123, 97, 255, 0.04) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      40px 40px,
+      40px 40px;
+    background-position:
+      0 0,
+      0 0,
+      -1px -1px,
+      -1px -1px;
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: rgba(0, 255, 163, 0.3);
+  }
+}
+
+@layer components {
+  /* High-Contrast Neon Glassmorphism */
+  .cyber-panel {
+    @apply relative backdrop-blur-2xl border rounded-[24px] shadow-2xl transition-all duration-300;
+    background-color: rgba(30, 15, 55, 0.6);
+    border-color: rgba(123, 97, 255, 0.2);
+    box-shadow:
+      0 10px 40px -10px rgba(0, 0, 0, 0.8),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .cyber-panel::before {
+    content: '';
+    @apply absolute inset-0 rounded-[24px] pointer-events-none p-[1px] opacity-0 transition-opacity duration-500;
+    background: linear-gradient(
+      135deg,
+      rgba(0, 255, 163, 0.8) 0%,
+      rgba(123, 97, 255, 0.4) 50%,
+      transparent 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .cyber-panel:hover {
+    box-shadow:
+      0 15px 50px -10px rgba(123, 97, 255, 0.15),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .cyber-panel:hover::before {
+    @apply opacity-100;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(58, 176, 255, 0.5);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 255, 163, 0.6);
+  box-shadow: 0 0 10px rgba(0, 255, 163, 0.5);
+}
