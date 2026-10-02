@@ -28,6 +28,9 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 # Debug mode exposes the Werkzeug debugger; never enable it on a public interface
 DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
+# Where "/" redirects when no frontend build (frontend/dist) is present
+FRONTEND_DEV_URL = os.environ.get("FRONTEND_DEV_URL", "http://localhost:3000")
+
 # Security Configurations
 API_KEY = os.environ.get("API_KEY", "sys-monitor-secret-token")
 if API_KEY == "sys-monitor-secret-token":

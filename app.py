@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 
 import psutil
-from flask import Flask, jsonify, redirect, request
+from flask import Flask, jsonify, redirect, request, send_from_directory
 
 # Load configuration values
 from config import (
@@ -17,6 +17,7 @@ from config import (
     CPU_THRESHOLD,
     DEBUG,
     DISK_THRESHOLD,
+    FRONTEND_DEV_URL,
     HISTORY_LIMIT,
     HOST,
     LOG_FILE,
@@ -121,10 +122,21 @@ def normalize_payload(source: dict) -> dict:
     }
 
 
-@app.route("/")
-def dashboard():
-    logger.debug("Redirecting root to Vite frontend.")
-    return redirect("http://localhost:3000", code=302)
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def dashboard(path: str):
+    # Production: serve the built SPA. Development: hand off to the Vite dev server.
+    if path.startswith("api/"):
+        return jsonify({"error": "Not Found"}), 404
+    if not os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")):
+        logger.debug("No frontend build found; redirecting to Vite dev server.")
+        return redirect(FRONTEND_DEV_URL, code=302)
+    if path and os.path.isfile(os.path.join(FRONTEND_DIST, path)):
+        return send_from_directory(FRONTEND_DIST, path)
+    return send_from_directory(FRONTEND_DIST, "index.html")
 
 
 @app.route("/api/health", methods=["GET"])
