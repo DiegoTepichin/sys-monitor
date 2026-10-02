@@ -55,7 +55,7 @@ export default function Layout({
             </div>
             <input
               type="text"
-              placeholder="Search processes, services..."
+              placeholder="Search processes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#1E0F36]/80 border border-[#7B61FF]/30 rounded-xl py-2 pl-10 pr-12 text-sm text-white focus:outline-none focus:border-[#00FFA3] focus:ring-1 focus:ring-[#00FFA3] transition-all placeholder:text-[#3AB0FF]/40 shadow-inner"
