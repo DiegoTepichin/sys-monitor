@@ -65,3 +65,6 @@ node_modules*
 
 # Local agent settings
 .claude/
+
+# Local assistant instructions (not versioned)
+CLAUDE.md
