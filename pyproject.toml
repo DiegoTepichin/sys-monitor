@@ -19,4 +19,5 @@ known-first-party = ["scripts", "config", "app", "agent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra"
