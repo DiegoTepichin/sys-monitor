@@ -25,7 +25,8 @@ def safe_int(value, default):
 # Server Configuration
 PORT = safe_int(os.environ.get("PORT"), 5002)
 HOST = os.environ.get("HOST", "0.0.0.0")
-DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
+# Debug mode exposes the Werkzeug debugger; never enable it on a public interface
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
 # Security Configurations
 API_KEY = os.environ.get("API_KEY", "sys-monitor-secret-token")

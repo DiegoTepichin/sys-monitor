@@ -1,4 +1,5 @@
 # pyrefly: ignore [missing-import]
+import hmac
 import logging
 import os
 import time
@@ -82,9 +83,18 @@ def is_valid_metrics_payload(payload: dict) -> str | None:
         section = payload.get(key)
         if not isinstance(section, dict):
             return f"'{key}' must be a JSON object"
-        if "percent" not in section or not isinstance(section.get("percent"), (int, float)):
+        percent = section.get("percent")
+        # bool is a subclass of int, so reject it explicitly
+        if isinstance(percent, bool) or not isinstance(percent, int | float):
             return f"'{key}.percent' must be a number"
+        if not 0 <= percent <= 100:
+            return f"'{key}.percent' must be between 0 and 100"
     return None
+
+
+def is_authorized(provided_key: str | None) -> bool:
+    # Constant-time comparison prevents timing attacks on the API key
+    return bool(provided_key) and hmac.compare_digest(provided_key.encode(), API_KEY.encode())
 
 
 def normalize_payload(source: dict) -> dict:
@@ -115,15 +125,14 @@ def api_health():
 @app.route("/api/metrics", methods=["GET", "POST"])
 def api_metrics():
     if request.method == "POST":
-        provided_key = request.headers.get("X-API-Key")
-        if not provided_key or provided_key != API_KEY:
+        if not is_authorized(request.headers.get("X-API-Key")):
             logger.warning(
                 f"Unauthorized metrics POST attempt. API Key mismatch or missing. IP: {request.remote_addr}"
             )
             return jsonify({"error": "Forbidden. Invalid or missing X-API-Key."}), 403
 
         try:
-            payload = request.get_json()
+            payload = request.get_json(silent=True)
             if not payload:
                 return jsonify({"error": "Bad Request. Missing JSON body."}), 400
 
@@ -149,7 +158,9 @@ def api_metrics():
 
         except Exception as e:
             logger.error(f"Failed to parse agent metrics payload: {e}", exc_info=True)
-            return jsonify({"error": "Bad Request", "details": str(e)}), 400
+            return jsonify(
+                {"error": "Bad Request", "details": "Could not process metrics payload"}
+            ), 400
 
     else:
         try:
