@@ -1,0 +1,22 @@
+[project]
+name = "sys-monitor"
+version = "1.0.0"
+description = "Real-time host metrics monitoring: psutil agent, Flask API and React dashboard."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py311"
+extend-exclude = ["frontend", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "C4", "ERA"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["scripts", "config", "app", "agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
