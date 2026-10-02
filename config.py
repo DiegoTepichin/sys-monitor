@@ -10,7 +10,8 @@ if os.path.exists(env_path):
                 if line and not line.startswith("#") and "=" in line:
                     key, val = line.split("=", 1)
                     val = val.strip().strip('"').strip("'")
-                    os.environ[key.strip()] = val
+                    # Real environment variables take precedence over .env
+                    os.environ.setdefault(key.strip(), val)
     except Exception as e:
         print(f"Warning: Failed to load .env file manually: {e}")
 
