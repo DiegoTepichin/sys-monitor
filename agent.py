@@ -1,62 +1,56 @@
 # pyrefly: ignore [missing-import]
-import time
-import requests
 import logging
-from datetime import datetime
+import time
+from datetime import UTC, datetime
+
+import requests
 
 # Import configs and system monitor scripts
-from config import API_KEY
-from config import POLL_INTERVAL, PORT, HOST
+from config import API_KEY, HOST, POLL_INTERVAL, PORT
 from scripts.monitor_cpu import get_cpu_usage
-from scripts.monitor_memory import get_memory_usage
 from scripts.monitor_disk import get_disk_usage
+from scripts.monitor_memory import get_memory_usage
+from scripts.monitor_network import get_network_usage
 from scripts.monitor_processes import get_top_processes
 
 # Setup standalone logging configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("sys-monitor-agent")
 
-# Server endpoint where metrics will be posted
-API_URL = f"http://{HOST if HOST != '0.0.0.0' else '127.0.0.1'}:{PORT}/api/metrics"
+
+def get_api_url():
+    resolved_host = "127.0.0.1" if HOST == "0.0.0.0" else HOST
+    return f"http://{resolved_host}:{PORT}/api/metrics"
+
 
 def run_agent():
-    """Starts the monitoring daemon loop.
+    api_url = get_api_url()
+    logger.info(
+        f"Starting Sys-Monitor Agent daemon. Target API: {api_url} (Interval: {POLL_INTERVAL}s)"
+    )
 
-    Gathers metrics locally from psutil scripts and pushes them to the Flask server
-    every POLL_INTERVAL seconds. Handles exceptions internally to ensure the daemon
-    remains operational even if the API server goes down.
-    """
-    logger.info(f"Starting Sys-Monitor Agent daemon. Target API: {API_URL} (Interval: {POLL_INTERVAL}s)")
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY
-    }
+    headers = {"Content-Type": "application/json", "X-API-Key": API_KEY}
 
     while True:
         try:
-            # Query local hardware metrics
             cpu = get_cpu_usage()
             memory = get_memory_usage()
             disk = get_disk_usage()
             processes = get_top_processes(5)
+            network = get_network_usage()
 
-            # Assemble payload
             payload = {
-                "timestamp": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "cpu": cpu,
                 "memory": memory,
                 "disk": disk,
-                "processes": processes
+                "network": network,
+                "processes": processes,
             }
 
-            # Send metrics to Flask server
             logger.info("Collecting hardware snapshots...")
-            response = requests.post(API_URL, json=payload, headers=headers, timeout=5)
-            
+            response = requests.post(api_url, json=payload, headers=headers, timeout=5)
+
             if response.status_code == 201:
                 logger.info("Hardware performance metrics successfully pushed to Flask server.")
             else:
@@ -69,10 +63,10 @@ def run_agent():
         except requests.exceptions.RequestException as req_err:
             logger.error(f"Network error trying to connect to API server: {req_err}")
         except Exception as err:
-            # Catching generic errors so the background thread process is crash-proof
             logger.error(f"Unexpected error in metrics reporting loop: {err}", exc_info=True)
 
         time.sleep(POLL_INTERVAL)
+
 
 if __name__ == "__main__":
     run_agent()
