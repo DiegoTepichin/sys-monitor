@@ -89,7 +89,7 @@ is empty, `POST /api/metrics` returns `503` and `agent.py` exits with an error.
   `perf`, `test`, `docs`, `build`, `ci`, `chore`, optional scope (`feat(api): …`).
 - One logical change per commit. pre-commit hooks may reformat staged files; re-stage and
   commit again.
-- CI (`.github/workflows/ci.yml`) must pass: ruff, pytest on 3.11/3.12, oxlint, frontend build,
+- CI (`.github/workflows/ci.yml`) must pass: ruff, pytest on 3.11–3.14, oxlint, frontend build,
   Docker build.
 
 ## Deployment notes
