@@ -10,8 +10,7 @@ dashboard en React.
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<!-- TODO: screenshot — agrega docs/screenshot.png y descomenta la línea siguiente -->
-<!-- ![Dashboard de Sys-Monitor](docs/screenshot.png) -->
+![Dashboard de Sys-Monitor: tarjetas de CPU, memoria, disco y red, gráfica de tendencia CPU/RAM y procesos principales](docs/screenshot.webp)
 
 ## Por qué
 

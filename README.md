@@ -9,8 +9,7 @@ Real-time host monitoring: a `psutil` agent, an authenticated Flask API and a Re
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<!-- TODO: screenshot — add docs/screenshot.png and uncomment the line below -->
-<!-- ![Sys-Monitor dashboard](docs/screenshot.png) -->
+![Sys-Monitor dashboard: CPU, memory, disk and network cards, CPU/RAM trend chart and top processes](docs/screenshot.webp)
 
 ## Why
 
