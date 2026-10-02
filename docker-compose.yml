@@ -7,8 +7,8 @@ services:
       - ./logs:/app/logs
     environment:
       PORT: 5002
-      # Required: set API_KEY in your shell or in a .env file next to this compose file
-      API_KEY: ${API_KEY:?Set API_KEY before running docker compose}
+      # Optional: only needed if agents will POST metrics to this server
+      API_KEY: ${API_KEY:-}
       POLL_INTERVAL: 5
       HISTORY_LIMIT: 20
     restart: unless-stopped

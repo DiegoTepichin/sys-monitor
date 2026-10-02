@@ -148,6 +148,10 @@ def api_health():
 @app.route("/api/metrics", methods=["GET", "POST"])
 def api_metrics():
     if request.method == "POST":
+        if not API_KEY:
+            return jsonify(
+                {"error": "Metric ingestion is disabled: API_KEY is not configured."}
+            ), 503
         if not is_authorized(request.headers.get("X-API-Key")):
             logger.warning(
                 f"Unauthorized metrics POST attempt. API Key mismatch or missing. IP: {request.remote_addr}"

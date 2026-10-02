@@ -12,8 +12,12 @@ VALID_PAYLOAD = {
 }
 
 
+TEST_API_KEY = "test-key"
+
+
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.setattr(app_module, "API_KEY", TEST_API_KEY)
     app_module.app.config["TESTING"] = True
     with app_module._history_lock:
         app_module.metrics_history.clear()
@@ -22,7 +26,7 @@ def client():
 
 
 def post_metrics(client, payload, key=None):
-    headers = {"X-API-Key": app_module.API_KEY if key is None else key}
+    headers = {"X-API-Key": TEST_API_KEY if key is None else key}
     return client.post("/api/metrics", json=payload, headers=headers)
 
 
@@ -47,10 +51,17 @@ def test_post_rejects_missing_api_key(client):
     assert response.status_code == 403
 
 
+def test_post_disabled_without_configured_api_key(client, monkeypatch):
+    monkeypatch.setattr(app_module, "API_KEY", "")
+
+    response = post_metrics(client, VALID_PAYLOAD, key="")
+
+    assert response.status_code == 503
+    assert client.get("/api/metrics/history").get_json() == []
+
+
 def test_post_rejects_non_json_body(client):
-    response = client.post(
-        "/api/metrics", data="not json", headers={"X-API-Key": app_module.API_KEY}
-    )
+    response = client.post("/api/metrics", data="not json", headers={"X-API-Key": TEST_API_KEY})
 
     assert response.status_code == 400
 

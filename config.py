@@ -32,11 +32,11 @@ DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 FRONTEND_DEV_URL = os.environ.get("FRONTEND_DEV_URL", "http://localhost:3000")
 
 # Security Configurations
-API_KEY = os.environ.get("API_KEY", "sys-monitor-secret-token")
-if API_KEY == "sys-monitor-secret-token":
-    print(
-        "WARNING: Using default API key 'sys-monitor-secret-token'. Set API_KEY in .env for production."
-    )
+# No default on purpose: without API_KEY, POST /api/metrics is disabled (503) and the
+# agent refuses to start. Read-only endpoints and the dashboard keep working.
+API_KEY = os.environ.get("API_KEY", "").strip()
+if not API_KEY:
+    print("WARNING: API_KEY is not set. Metric ingestion (POST /api/metrics) is disabled.")
 
 # Daemon and App Settings
 POLL_INTERVAL = safe_int(os.environ.get("POLL_INTERVAL"), 5)

@@ -1,5 +1,6 @@
 # pyrefly: ignore [missing-import]
 import logging
+import sys
 import time
 from datetime import UTC, datetime
 
@@ -24,6 +25,10 @@ def get_api_url():
 
 
 def run_agent():
+    if not API_KEY:
+        logger.error("API_KEY is not set. Define it in .env or the environment (see .env.example).")
+        sys.exit(1)
+
     api_url = get_api_url()
     logger.info(
         f"Starting Sys-Monitor Agent daemon. Target API: {api_url} (Interval: {POLL_INTERVAL}s)"
