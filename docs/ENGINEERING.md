@@ -1,11 +1,11 @@
-# CLAUDE.md — Sys-Monitor engineering guide
+# Sys-Monitor — Engineering Guide
 
-Guide for AI coding agents and developers working in this repository. `AGENTS.md` points here;
-keep this file as the single source of truth.
+Internals for anyone changing the code: architecture, conventions, testing and deployment.
+For setup and the contribution workflow, start with [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Architecture
 
-Three parts, one repo:
+Four parts, one repo:
 
 1. **Collectors** — `scripts/monitor_{cpu,memory,disk,network,processes}.py`. Thin wrappers
    over `psutil`. Disk and network keep the previous counter sample in module globals guarded
@@ -14,7 +14,7 @@ Three parts, one repo:
    `deque(maxlen=...)` guarded by `_history_lock`. All writes go through `record_snapshot()`,
    which calls `normalize_payload()` so every stored entry has the same shape.
 3. **Agent** — `agent.py`. Loop: collect → `POST /api/metrics` with `X-API-Key` → sleep
-   `POLL_INTERVAL`. Never exits on errors.
+   `POLL_INTERVAL`. Exits only if `API_KEY` is missing; runtime errors are logged and retried.
 4. **Dashboard** — `frontend/` (React 19, Vite, Tailwind, Recharts, Framer Motion). Polls
    `GET /api/metrics` every 2 s. Vite proxies `/api` → `http://127.0.0.1:5002` in dev.
 
@@ -41,7 +41,7 @@ pytest
 cd frontend && npm run lint && npm run build
 
 # Production
-API_KEY=... docker compose up --build   # http://localhost:5002
+docker compose up --build         # http://localhost:5002
 ```
 
 ## Configuration
@@ -50,7 +50,8 @@ API_KEY=... docker compose up --build   # http://localhost:5002
 falls back to the default on invalid values. See `.env.example` for every variable. Defaults:
 `PORT=5002`, `DEBUG=False`, `POLL_INTERVAL=5`, `HISTORY_LIMIT=20`, `CPU_THRESHOLD=80`,
 `MEMORY_THRESHOLD=85`, `DISK_THRESHOLD=90`, `LOG_FILE=logs/app.log`.
-`config.py` prints a warning when `API_KEY` is left at the default.
+Real environment variables take precedence over `.env`. `API_KEY` has **no default**: when it
+is empty, `POST /api/metrics` returns `503` and `agent.py` exits with an error.
 
 ## Code conventions
 
@@ -74,8 +75,8 @@ falls back to the default on invalid values. See `.env.example` for every variab
 
 ## Testing
 
-- `tests/test_api.py` uses the Flask test client. The `client` fixture clears
-  `metrics_history`; patch collectors with `patch.object(app_module, "get_cpu_usage", ...)`
+- `tests/test_api.py` uses the Flask test client. The `client` fixture sets a test `API_KEY`
+  and clears `metrics_history`; patch collectors with `patch.object(app_module, "get_cpu_usage", ...)`
   because `app.py` imports them by name.
 - `tests/test_collectors.py` and `tests/test_monitor.py` mock `psutil`; network tests reset
   `monitor_network.last_net_io` / `last_net_time` before running.
@@ -88,8 +89,6 @@ falls back to the default on invalid values. See `.env.example` for every variab
   `perf`, `test`, `docs`, `build`, `ci`, `chore`, optional scope (`feat(api): …`).
 - One logical change per commit. pre-commit hooks may reformat staged files; re-stage and
   commit again.
-- Commits are authored by the repository owner. Do not add `Co-Authored-By` or AI attribution
-  trailers.
 - CI (`.github/workflows/ci.yml`) must pass: ruff, pytest on 3.11/3.12, oxlint, frontend build,
   Docker build.
 
