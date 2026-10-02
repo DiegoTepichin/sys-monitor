@@ -2,7 +2,9 @@
 import hmac
 import logging
 import os
+import threading
 import time
+from collections import deque
 from datetime import UTC, datetime
 
 import psutil
@@ -57,8 +59,15 @@ if LOG_FILE:
 
 app = Flask(__name__)
 
-# Global in-memory thread-safe-ish list for metrics history
-metrics_history = []
+# Bounded FIFO of normalized snapshots; the lock guards concurrent request threads
+metrics_history: deque[dict] = deque(maxlen=HISTORY_LIMIT)
+_history_lock = threading.Lock()
+
+
+def record_snapshot(payload: dict) -> None:
+    snapshot = normalize_payload(payload)
+    with _history_lock:
+        metrics_history.append(snapshot)
 
 
 def format_current_timestamp() -> str:
@@ -149,9 +158,7 @@ def api_metrics():
             payload["alerts"] = evaluate_thresholds(cpu_pct, mem_pct, disk_pct)
             payload["status"] = "warning" if payload["alerts"] else "healthy"
 
-            metrics_history.append(normalize_payload(payload))
-            if len(metrics_history) > HISTORY_LIMIT:
-                metrics_history.pop(0)
+            record_snapshot(payload)
 
             logger.info("Received and recorded external metrics from agent.")
             return jsonify({"status": "success", "message": "Metrics recorded"}), 201
@@ -201,9 +208,7 @@ def api_metrics():
                 "status": "warning" if alerts else "healthy",
             }
 
-            metrics_history.append(normalize_payload(metrics_payload))
-            if len(metrics_history) > HISTORY_LIMIT:
-                metrics_history.pop(0)
+            record_snapshot(metrics_payload)
 
             logger.info("Retrieved current local system metrics.")
             return jsonify(metrics_payload), 200
@@ -225,12 +230,9 @@ def api_metrics():
 
 @app.route("/api/metrics/history", methods=["GET"])
 def api_metrics_history():
-    logger.info("Serving metrics history list.")
-    try:
-        return jsonify(metrics_history), 200
-    except Exception as e:
-        logger.error(f"Error fetching metrics history: {e}", exc_info=True)
-        return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+    with _history_lock:
+        snapshot = list(metrics_history)
+    return jsonify(snapshot), 200
 
 
 if __name__ == "__main__":
