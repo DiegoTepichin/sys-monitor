@@ -6,6 +6,7 @@ import threading
 import time
 from collections import deque
 from datetime import UTC, datetime
+from logging.handlers import RotatingFileHandler
 
 import psutil
 from flask import Flask, jsonify, redirect, request
@@ -51,7 +52,8 @@ logger.addHandler(console_handler)
 # File handler
 if LOG_FILE:
     try:
-        file_handler = logging.FileHandler(LOG_FILE)
+        # Cap disk usage: 5 MB per file, 3 backups
+        file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     except Exception as e:
@@ -121,13 +123,13 @@ def normalize_payload(source: dict) -> dict:
 
 @app.route("/")
 def dashboard():
-    logger.info("Redirecting root to Vite frontend.")
+    logger.debug("Redirecting root to Vite frontend.")
     return redirect("http://localhost:3000", code=302)
 
 
 @app.route("/api/health", methods=["GET"])
 def api_health():
-    logger.info("Health check endpoint hit.")
+    logger.debug("Health check endpoint hit.")
     return jsonify({"status": "ok", "timestamp": format_current_timestamp()}), 200
 
 
@@ -160,7 +162,7 @@ def api_metrics():
 
             record_snapshot(payload)
 
-            logger.info("Received and recorded external metrics from agent.")
+            logger.debug("Received and recorded external metrics from agent.")
             return jsonify({"status": "success", "message": "Metrics recorded"}), 201
 
         except Exception as e:
@@ -210,7 +212,7 @@ def api_metrics():
 
             record_snapshot(metrics_payload)
 
-            logger.info("Retrieved current local system metrics.")
+            logger.debug("Retrieved current local system metrics.")
             return jsonify(metrics_payload), 200
 
         except Exception as e:
