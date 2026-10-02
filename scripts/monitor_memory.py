@@ -1,7 +1,9 @@
-import psutil
 import logging
 
+import psutil
+
 logger = logging.getLogger(__name__)
+
 
 def get_memory_usage() -> dict:
     """Get virtual memory usage details.
@@ -22,7 +24,10 @@ def get_memory_usage() -> dict:
         "used": 0,
         "free": 0,
         "percent": 0.0,
-        "error": None
+        "swap_total": 0,
+        "swap_used": 0,
+        "swap_percent": 0.0,
+        "error": None,
     }
     try:
         mem = psutil.virtual_memory()
@@ -30,8 +35,16 @@ def get_memory_usage() -> dict:
         metrics["used"] = mem.used
         metrics["free"] = mem.free
         metrics["percent"] = mem.percent
+
+        try:
+            swap = psutil.swap_memory()
+            metrics["swap_total"] = swap.total
+            metrics["swap_used"] = swap.used
+            metrics["swap_percent"] = swap.percent
+        except Exception:
+            pass
     except Exception as e:
         logger.error(f"Failed to fetch memory metrics: {e}", exc_info=True)
         metrics["error"] = str(e)
-        
+
     return metrics

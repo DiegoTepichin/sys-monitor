@@ -1,7 +1,11 @@
-import psutil
+import contextlib
 import logging
+import os
+
+import psutil
 
 logger = logging.getLogger(__name__)
+
 
 def get_cpu_usage() -> dict:
     """Get current CPU usage percentage, core count, and system temperature.
@@ -20,28 +24,40 @@ def get_cpu_usage() -> dict:
         "percent": 0.0,
         "cores": 0,
         "temperature": None,
-        "error": None
+        "load_avg": (0.0, 0.0, 0.0),
+        "frequency": 0.0,
+        "error": None,
     }
     try:
         metrics["cores"] = psutil.cpu_count(logical=True) or 0
         metrics["percent"] = psutil.cpu_percent(interval=0.1)
-        
+
+        # os.getloadavg() is unavailable on Windows
+        with contextlib.suppress(OSError, AttributeError):
+            metrics["load_avg"] = os.getloadavg()
+
+        try:
+            freq = psutil.cpu_freq()
+            metrics["frequency"] = freq.current if freq else 0.0
+        except Exception:
+            pass
+
         # Try to obtain system temperatures
         try:
             temps = psutil.sensors_temperatures()
             # Look for common labels for CPU sensors
             if temps:
                 for name, entries in temps.items():
-                    if 'cpu' in name.lower() or 'core' in name.lower() or 'temp' in name.lower():
-                        if entries:
-                            metrics["temperature"] = entries[0].current
-                            break
+                    label = name.lower()
+                    if entries and ("cpu" in label or "core" in label or "temp" in label):
+                        metrics["temperature"] = entries[0].current
+                        break
         except Exception as temp_err:
             # System might not support temperature reading (e.g. macOS or virtualization environments)
             logger.debug(f"Temperature reading not supported: {temp_err}")
-            
+
     except Exception as e:
         logger.error(f"Failed to fetch CPU metrics: {e}", exc_info=True)
         metrics["error"] = str(e)
-        
+
     return metrics
