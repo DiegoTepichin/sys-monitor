@@ -1,31 +1,30 @@
+**English** | [Español](README.es.md)
+
 # Sys-Monitor
 
+Real-time host monitoring: a `psutil` agent, an authenticated Flask API and a React dashboard.
+
 [![CI](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-3-000000?logo=flask)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Monitoreo de recursos del host en tiempo real: un **agente** ligero recolecta CPU, memoria,
-disco, red y procesos con `psutil`; una **API Flask** autenticada valida, evalúa umbrales y
-conserva un historial acotado; un **dashboard React** visualiza todo con refresco cada 2 s.
+<!-- TODO: screenshot — add docs/screenshot.png and uncomment the line below -->
+<!-- ![Sys-Monitor dashboard](docs/screenshot.png) -->
 
----
+## Why
 
-## El problema
+When a machine slows down, the first question is _"what is it doing right now?"_. Prometheus +
+Grafana answer that at scale, but they are a lot to run for a single server, a homelab or a dev
+box. Sys-Monitor is a small, self-contained alternative:
 
-Cuando un servicio se degrada, la primera pregunta es _"¿qué está pasando en la máquina?"_.
-Herramientas como Prometheus + Grafana resuelven esto a escala, pero son pesadas para un
-servidor pequeño, un homelab o un entorno de desarrollo. Sys-Monitor ofrece:
+- **Live view** of CPU (usage, load average, frequency), memory and swap, disk usage and
+  read/write throughput, network throughput and the top processes by CPU.
+- **Threshold alerts** for CPU, memory and disk, with an overall `healthy` / `warning` status.
+- **Authenticated ingestion**: an agent pushes snapshots over HTTP with an API key.
+- **One container** for deployment: `docker compose up`.
 
-- **Visibilidad inmediata** de CPU, RAM, swap, disco (uso y throughput), red y top procesos.
-- **Alertas por umbral** configurables (CPU / memoria / disco) con estado `healthy` / `warning`.
-- **Ingesta autenticada** para que agentes reporten métricas por HTTP.
-- **Un solo contenedor** para desplegar: `docker compose up` y listo.
-
----
-
-## Arquitectura
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -34,113 +33,76 @@ flowchart LR
     end
 
     subgraph Server["Flask API · app.py"]
-        V["Auth (X-API-Key, hmac)<br/>+ validación de payload"]
-        T["Evaluación de umbrales"]
-        H[("Historial FIFO<br/>deque(maxlen) + Lock")]
-        C["Colectores<br/>scripts/monitor_*.py"]
+        V["Auth (X-API-Key, constant-time)<br/>+ payload validation"]
+        T["Threshold evaluation"]
+        H[("History FIFO<br/>deque(maxlen) + Lock")]
+        C["Collectors<br/>scripts/monitor_*.py"]
     end
 
-    U["Dashboard React<br/>Vite · Tailwind · Recharts"]
+    U["React dashboard<br/>Vite · Tailwind · Recharts"]
 
     A -- "POST /api/metrics" --> V --> T --> H
-    U -- "GET /api/metrics (cada 2 s)" --> C --> T
+    U -- "GET /api/metrics (every 2 s)" --> C --> T
     U -- "GET /api/metrics/history" --> H
 ```
 
-| Componente             | Responsabilidad                                                                                                                                                                                                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/monitor_*.py` | Colectores puros. **Nunca lanzan excepciones**: siempre devuelven un `dict` con clave `error`, para que un sensor caído no tumbe el servicio. Disco y red calculan throughput con deltas de contadores protegidos por `threading.Lock`. |
-| `agent.py`             | Daemon que recolecta cada `POLL_INTERVAL` s y hace `POST` autenticado. Tolera caídas del servidor (reintenta en el siguiente ciclo).                                                                                                    |
-| `app.py`               | API Flask: autenticación en tiempo constante, validación de esquema, evaluación de umbrales, historial acotado thread-safe y servido del SPA en producción.                                                                             |
-| `frontend/`            | Dashboard React 19 en bento grid: tarjetas KPI animadas, gráfica de tendencia CPU/RAM y tabla de procesos con búsqueda.                                                                                                                 |
+| Component              | Responsibility                                                                                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/monitor_*.py` | Collectors. They **never raise**: each returns a dict with an `error` key, so one failing sensor can't take the service down. Disk and network compute throughput from counter deltas behind a `threading.Lock`. |
+| `agent.py`             | Daemon that collects every `POLL_INTERVAL` seconds and POSTs with `X-API-Key`. Survives server outages and retries on the next cycle.                                                                            |
+| `app.py`               | Flask API: constant-time key check, schema validation, threshold alerts, bounded thread-safe history, and serves the built dashboard in production.                                                              |
+| `frontend/`            | React 19 dashboard: animated KPI cards, CPU/RAM trend chart and a searchable process table.                                                                                                                      |
 
-```
-sys-monitor/
-├── app.py                 # API Flask + servido del SPA
-├── agent.py               # Daemon recolector
-├── config.py              # Configuración por env/.env con defaults seguros
-├── scripts/               # Colectores psutil (cpu, memory, disk, network, processes)
-├── tests/                 # pytest: API + colectores (psutil mockeado)
-├── frontend/              # React 19 + Vite + Tailwind
-├── Dockerfile             # Multi-stage: build Node → runtime Python con gunicorn
-├── docker-compose.yml
-└── .github/workflows/     # CI: ruff, pytest (3.11/3.12), oxlint, build, docker
-```
+## Quickstart
 
----
-
-## Stack y decisiones técnicas
-
-| Decisión                           | Por qué                                                                                                                                |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Flask** sobre FastAPI/Django     | La superficie es de 4 endpoints síncronos; Flask minimiza dependencias y arranque. `psutil` es bloqueante, así que async no aportaría. |
-| **psutil**                         | Abstracción multiplataforma (Linux, macOS, Windows) sobre `/proc`, `sysctl` y WMI.                                                     |
-| **Agente separado del servidor**   | Desacopla recolección y presentación: el servidor puede recibir métricas de otros procesos u hosts.                                    |
-| **`deque(maxlen)` + `Lock`**       | Historial O(1) acotado en memoria, seguro con servidores multi-hilo. Sin base de datos que operar.                                     |
-| **`hmac.compare_digest`**          | Comparación de la API key en tiempo constante (evita ataques de timing).                                                               |
-| **gunicorn, 1 worker × 4 threads** | El historial vive en memoria del proceso; varios workers lo fragmentarían. Los threads dan concurrencia.                               |
-| **Colectores que nunca lanzan**    | Degradación elegante: un sensor sin soporte (p. ej. temperatura en macOS) se reporta como alerta, no como 500.                         |
-| **React + Vite + Tailwind**        | HMR rápido en desarrollo; en producción Flask sirve el build estático, sin servidor Node.                                              |
-| **Config sin `python-dotenv`**     | `config.py` lee `.env` manualmente y `safe_int()` recupera defaults ante valores inválidos.                                            |
-
----
-
-## Inicio rápido
-
-### Opción A — Docker (producción)
+Requirements: Python 3.11+, Node 22+.
 
 ```sh
-export API_KEY="$(openssl rand -hex 32)"
+git clone https://github.com/DiegoTepichin/sys-monitor.git && cd sys-monitor
+python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+(cd frontend && npm ci && npm run build)
+echo "API_KEY=$(openssl rand -hex 32)" > .env
+python app.py & python agent.py
+```
+
+Open <http://localhost:5002>. Flask serves the built dashboard; the agent pushes a snapshot every
+5 seconds. Stop both with `Ctrl+C` followed by `kill %1`.
+
+For frontend development with hot reload, run `cd frontend && npm run dev` and open
+<http://localhost:3000> (Vite proxies `/api` to `:5002`).
+
+### Docker
+
+```sh
 docker compose up --build
 ```
 
-Abre <http://localhost:5002>. La imagen compila el dashboard, lo sirve desde Flask/gunicorn,
-corre como usuario sin privilegios e incluye `HEALTHCHECK` contra `/api/health`.
+Open <http://localhost:5002>. The image builds the dashboard, runs it under gunicorn as a
+non-root user and defines a `HEALTHCHECK` on `/api/health`.
 
-> Dentro de un contenedor, `psutil` reporta las métricas **del contenedor**. Para monitorear el
-> host completo, usa la opción B directamente en la máquina.
+> Inside a container, `psutil` sees the **container**, not the host: expect only a couple of
+> processes. To monitor a real machine, use the local quickstart on it.
 
-### Opción B — Desarrollo local
-
-Requisitos: Python 3.11+, Node 22+.
+## Tests
 
 ```sh
-# Backend
-python -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env            # y define un API_KEY propio
-python app.py                   # API en http://127.0.0.1:5002
-
-# Agente (otra terminal)
-python agent.py
-
-# Frontend (otra terminal)
-cd frontend && npm ci && npm run dev   # http://localhost:3000, proxy /api → :5002
+pytest                                   # 26 tests, psutil is mocked
+ruff check . && ruff format --check .
+cd frontend && npm run lint && npm run build
 ```
 
-### Variables de entorno
-
-| Variable                                                | Default                    | Descripción                                                                           |
-| ------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------- |
-| `API_KEY`                                               | `sys-monitor-secret-token` | Clave para `POST /api/metrics`. **Cámbiala**: se imprime un aviso si usas el default. |
-| `HOST` / `PORT`                                         | `0.0.0.0` / `5002`         | Bind del servidor de desarrollo.                                                      |
-| `DEBUG`                                                 | `False`                    | Activa el debugger de Werkzeug. Nunca en una interfaz pública.                        |
-| `POLL_INTERVAL`                                         | `5`                        | Segundos entre envíos del agente.                                                     |
-| `HISTORY_LIMIT`                                         | `20`                       | Snapshots retenidos en memoria.                                                       |
-| `CPU_THRESHOLD` / `MEMORY_THRESHOLD` / `DISK_THRESHOLD` | `80` / `85` / `90`         | Porcentajes que disparan alertas.                                                     |
-| `LOG_FILE`                                              | `logs/app.log`             | Log rotativo (5 MB × 3).                                                              |
-| `FRONTEND_DEV_URL`                                      | `http://localhost:3000`    | Destino de `/` cuando no existe `frontend/dist`.                                      |
-
----
+CI runs all of the above on every push (pytest on Python 3.11 and 3.12) and also builds the
+Docker image.
 
 ## API
 
-| Método | Ruta                   | Auth        | Descripción                                                                      |
-| ------ | ---------------------- | ----------- | -------------------------------------------------------------------------------- |
-| `GET`  | `/api/health`          | —           | Liveness: `{"status": "ok", "timestamp": "..."}`                                 |
-| `GET`  | `/api/metrics`         | —           | Snapshot en vivo del host del servidor, con alertas y `status`.                  |
-| `POST` | `/api/metrics`         | `X-API-Key` | Ingesta desde un agente. `201` ok · `400` payload inválido · `403` key inválida. |
-| `GET`  | `/api/metrics/history` | —           | Últimos `HISTORY_LIMIT` snapshots normalizados (más antiguo primero).            |
+| Method | Path                   | Auth        | Description                                                                                       |
+| ------ | ---------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health`          | —           | Liveness: `{"status": "ok", "timestamp": "..."}`                                                  |
+| `GET`  | `/api/metrics`         | —           | Live snapshot of the server host, with alerts and `status`.                                       |
+| `POST` | `/api/metrics`         | `X-API-Key` | Agent ingestion. `201` stored · `400` invalid payload · `403` wrong key · `503` no `API_KEY` set. |
+| `GET`  | `/api/metrics/history` | —           | Last `HISTORY_LIMIT` normalized snapshots, oldest first.                                          |
 
 ```sh
 curl -X POST http://localhost:5002/api/metrics \
@@ -148,66 +110,74 @@ curl -X POST http://localhost:5002/api/metrics \
   -d '{"cpu":{"percent":12.5},"memory":{"percent":48.1},"disk":{"percent":61.0}}'
 ```
 
-`cpu`, `memory` y `disk` son obligatorios y su `percent` debe ser numérico en `[0, 100]`.
-`network`, `processes` y `timestamp` son opcionales; cada snapshot se normaliza a una forma
-estable antes de guardarse.
+`cpu`, `memory` and `disk` are required, each with a numeric `percent` in `[0, 100]`.
+`network`, `processes` and `timestamp` are optional.
 
----
+## Configuration
 
-## Rendimiento
+Set in `.env` (see [`.env.example`](.env.example)) or as environment variables; environment
+variables win.
 
-Medido con el test client de Flask en un Apple M4 (in-process, sin red):
+| Variable                                                | Default                 | Description                                                                   |
+| ------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------- |
+| `API_KEY`                                               | _(none)_                | Required for `POST /api/metrics` and the agent. Without it, ingestion is off. |
+| `HOST` / `PORT`                                         | `0.0.0.0` / `5002`      | Bind address for `python app.py`.                                             |
+| `DEBUG`                                                 | `False`                 | Werkzeug debugger. Never enable on a public interface.                        |
+| `POLL_INTERVAL`                                         | `5`                     | Seconds between agent pushes.                                                 |
+| `HISTORY_LIMIT`                                         | `20`                    | Snapshots kept in memory.                                                     |
+| `CPU_THRESHOLD` / `MEMORY_THRESHOLD` / `DISK_THRESHOLD` | `80` / `85` / `90`      | Percentages that trigger alerts.                                              |
+| `LOG_FILE`                                              | `logs/app.log`          | Rotating log file (5 MB × 3).                                                 |
+| `FRONTEND_DEV_URL`                                      | `http://localhost:3000` | Where `/` redirects when no `frontend/dist` build exists.                     |
 
-| Operación                                              | p50     | p95    |
-| ------------------------------------------------------ | ------- | ------ |
-| `POST /api/metrics` (validación + umbrales + registro) | 0.44 ms | 2.7 ms |
-| `GET /api/metrics/history` (20 snapshots, ~22 KB)      | 0.34 ms | 1.1 ms |
-| `GET /api/metrics` (recolección en vivo)               | 160 ms  | 197 ms |
+## Key technical decisions
 
-La recolección en vivo está dominada por `psutil.cpu_percent(interval=0.1)`, que muestrea
-100 ms de forma bloqueante, más la iteración de procesos. Un snapshot pesa ~1.2 KB.
+| Decision                           | Why                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Flask** over FastAPI             | Four synchronous endpoints and a blocking library (`psutil`): async would add complexity without benefit.        |
+| **Agent separate from the API**    | Collection and presentation are decoupled; anything that can send HTTP can report metrics.                       |
+| **`deque(maxlen)` + `Lock`**       | O(1) bounded history that is safe under a threaded server, with no database to operate.                          |
+| **No default API key**             | A built-in fallback token would be public on GitHub. Ingestion stays off until a key is configured.              |
+| **`hmac.compare_digest`**          | Constant-time key comparison, so response timing doesn't leak the key.                                           |
+| **gunicorn, 1 worker × 4 threads** | History lives in process memory; multiple workers would each hold a different copy. Threads provide concurrency. |
+| **Collectors never raise**         | Graceful degradation: an unsupported sensor (e.g. temperature on macOS) becomes an alert, not a 500.             |
+| **Flask serves the built SPA**     | One process and one port in production, with no Node server.                                                     |
 
-### Escalabilidad y límites conocidos
+## Performance
 
-- **Estado en memoria**: el historial se pierde al reiniciar y no se comparte entre workers.
-  El siguiente paso natural es una base de series temporales (TimescaleDB, o SQLite con
-  retención) para habilitar múltiples workers y consultas históricas.
-- **Un solo host en el dashboard**: los snapshots de agentes se guardan en el historial, pero el
-  dashboard grafica el muestreo en vivo del servidor. Etiquetar snapshots por `host_id`
-  habilitaría vistas multi-host.
-- **Umbrales duplicados**: el frontend define sus propios umbrales visuales; exponerlos desde la
-  API evitaría desalineación.
-- **Bundle del frontend** ~700 KB (Recharts + Framer Motion); candidato a code-splitting.
+Measured in-process with Flask's test client on an Apple M4 (Python 3.14, no network):
 
----
+| Operation                                       | p50     | p95     |
+| ----------------------------------------------- | ------- | ------- |
+| `POST /api/metrics` (validate + alerts + store) | 0.32 ms | 0.86 ms |
+| `GET /api/metrics/history` (20 snapshots)       | 0.29 ms | 0.70 ms |
+| `GET /api/metrics` (live collection)            | 140 ms  | 187 ms  |
 
-## Calidad y buenas prácticas
+Live collection is dominated by `psutil.cpu_percent(interval=0.1)`, which blocks for 100 ms to
+sample CPU usage, plus process iteration.
 
-- **25 tests** con `pytest` (psutil mockeado): autenticación, validación, límites del historial,
-  umbrales, errores de sensores, throughput de red y ranking de procesos.
-- **CI** en GitHub Actions: `ruff check`, `ruff format --check`, `pytest` en Python 3.11 y 3.12,
-  `oxlint` + build del frontend y build de la imagen Docker.
-- **pre-commit**: ruff, prettier y checks de higiene de archivos.
-- **Seguridad**: comparación de claves en tiempo constante, `DEBUG` desactivado por defecto,
-  errores internos no se exponen al cliente, contenedor sin root, `API_KEY` obligatoria en
-  compose.
-- **Observabilidad**: logs rotativos; INFO reservado para eventos de ciclo de vida y seguridad.
+## Known limitations
 
----
+- **In-memory state**: history is lost on restart and isn't shared across workers.
+- **Single host in the dashboard**: agent snapshots are stored in history, but the dashboard
+  charts the server's own live sampling. There is no `host_id` yet.
+- **Duplicated thresholds**: the dashboard's card colors use their own hardcoded thresholds.
+- **Bundle size**: ~700 KB minified JS (~210 KB gzipped), mostly Recharts and Framer Motion.
 
 ## Roadmap
 
-- [x] Agente desacoplado con tolerancia a fallos
-- [x] Dashboard React con tendencias y búsqueda de procesos
-- [x] Docker multi-stage con healthcheck y usuario sin privilegios
-- [x] CI (lint, tests, build)
-- [ ] Persistencia en base de series temporales
-- [ ] Soporte multi-host (`host_id` por snapshot)
-- [ ] Notificaciones de alertas (Slack / email)
-- [ ] Streaming por Server-Sent Events en lugar de polling
+- [ ] Persist history in a time-series store
+- [ ] Multi-host support (`host_id` per snapshot)
+- [ ] Alert notifications (Slack / email)
+- [ ] Server-Sent Events instead of polling
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ENGINEERING.md](docs/ENGINEERING.md).
+
+## License
+
+[MIT](LICENSE)
 
 ---
 
-## Contribuir
-
-Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para el flujo de trabajo, convenciones y comandos.
+Built by [Diego Tepichin](https://github.com/DiegoTepichin) — Systems Engineer · Founder of CAFE
