@@ -5,8 +5,8 @@
 Monitoreo del host en tiempo real: un agente con `psutil`, una API Flask autenticada y un
 dashboard en React.
 
-[![CI](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml)
-![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-3776AB?logo=python&logoColor=white)
+[![CI](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DiegoTepichin/sys-monitor/actions/workflows/ci.yml)
+![Python 3.11 – 3.14](https://img.shields.io/badge/python-3.11%20%E2%80%93%203.14-3776AB?logo=python&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -93,7 +93,7 @@ ruff check . && ruff format --check .
 cd frontend && npm run lint && npm run build
 ```
 
-El CI ejecuta todo lo anterior en cada push (pytest en Python 3.11 y 3.12) y además construye la
+El CI ejecuta todo lo anterior en cada push (pytest en Python 3.11 a 3.14) y además construye la
 imagen Docker.
 
 ## API
