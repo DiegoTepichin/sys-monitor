@@ -108,4 +108,3 @@ is empty, `POST /api/metrics` returns `503` and `agent.py` exits with an error.
   `/api/metrics/history`. No `host_id` yet for multi-host views.
 - Frontend card thresholds are hardcoded in `App.jsx` and can drift from `config.py`.
 - `GET /api/metrics` blocks ~100 ms on `cpu_percent(interval=0.1)`.
-- `axios` is listed in `frontend/package.json` but unused.
